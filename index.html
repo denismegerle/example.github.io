@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Secret Santa — Sessions (GitHub Pages)</title>
+<style>
+  :root{--bg:#0b1020;--card:#111735;--muted:#7f8db3;--accent:#7dd3fc;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--text:#eef2ff}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:linear-gradient(160deg,#0b1020,#0e1430 40%,#0c1230 100%); color:var(--text)}
+  .wrap{max-width:980px;margin:40px auto;padding:24px}
+  h1{font-size:28px;margin:0 0 8px}
+  h2{margin:0 0 8px}
+  .lead{margin:0 0 20px;color:var(--muted)}
+  .card{background:rgba(255,255,255,.04);backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .grid{display:grid;gap:16px} .g2{grid-template-columns:1fr 1fr} @media (max-width:900px){.g2{grid-template-columns:1fr}}
+  label{font-weight:600;display:block;margin-bottom:8px}
+  textarea,input,select,button{width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:#0e1736; color:var(--text)}
+  textarea{min-height:160px; resize:vertical}
+  button{cursor:pointer; font-weight:700; letter-spacing:.02em}
+  button.primary{background:linear-gradient(135deg,#2563eb,#06b6d4); border:none}
+  button.secondary{background:rgba(255,255,255,.06)}
+  button.success{background:linear-gradient(135deg,#16a34a,#22c55e); border:none}
+  .row{display:flex; gap:12px; align-items:center}
+  .row>*{flex:1}
+  .muted{color:var(--muted)}
+  .chip{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);margin:4px 6px 0 0;font-size:12px}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .hide{display:none}
+  .divider{height:1px;background:rgba(255,255,255,.12);margin:16px 0}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:rgba(125,211,252,.12);border:1px solid rgba(125,211,252,.35);color:#e0f2fe;padding:8px 10px;border-radius:999px}
+  .center{text-align:center}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,15,.7);backdrop-filter: blur(4px);display:none;align-items:center;justify-content:center;z-index:50}
+  .reveal{background:var(--card); border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:24px 22px; max-width:720px; margin:0 18px; box-shadow:0 20px 60px rgba(0,0,0,.45); text-align:center}
+  .big{font-size:40px; font-weight:800; letter-spacing:.02em; margin:10px 0 4px}
+</style>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎄 Secret Santa — Sessions (no keys)</h1>
+  <p class="lead">Create a session link, share it with everyone. Each person opens their private link on their own device. After someone reveals, that person is globally locked.</p>
+
+  <div id="view-admin" class="card grid g2 hide">
+    <div>
+      <h2>Admin — Create session</h2>
+      <label>1) Names (one per line)</label>
+      <textarea id="names" placeholder="Alice\nBob\nCharlie\n…"></textarea>
+      <div class="row" style="margin-top:10px">
+        <label class="row" style="align-items:center;gap:8px;flex:0 0 auto">
+          <input type="checkbox" id="noTwo" checked style="width:auto"> No mutual pairs (no A↔B)
+        </label>
+        <button class="primary" id="btnCreate">Create session</button>
+      </div>
+      <div class="divider"></div>
+      <p class="muted">This static page uses Firebase Firestore (anonymous auth) for shared state. Organizer blindness is by policy (mapping is not shown here), but the DB owner could inspect it.</p>
+    </div>
+    <div>
+      <h2>Share links</h2>
+      <div id="links"></div>
+      <div class="divider"></div>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div id="view-part" class="card hide">
+    <h2>Participant — Reveal</h2>
+    <div id="partIntro" class="muted">Loading…</div>
+    <div class="divider"></div>
+    <div class="row">
+      <button id="btnReveal" class="success">Reveal now</button>
+      <button id="btnHide" class="secondary">Hide</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov">
+  <div class="reveal">
+    <div style="opacity:.8">Your person is</div>
+    <div class="big" id="target">?</div>
+    <div class="row" style="justify-content:center;margin-top:10px">
+      <button class="secondary" id="closeOv">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 1) Paste your Firebase web config here =====
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+// ===================================================
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+auth.signInAnonymously().catch(console.error);
+
+// UI helpers
+const $ = (s)=>document.querySelector(s);
+const viewAdmin = $('#view-admin');
+const viewPart  = $('#view-part');
+const ov = $('#ov');
+const targetEl = $('#target');
+
+function parseQuery(){
+  const u = new URL(location.href);
+  return { s: u.searchParams.get('s'), t: u.searchParams.get('t') };
+}
+function show(id){ [viewAdmin, viewPart].forEach(el=>el.classList.add('hide')); id.classList.remove('hide'); }
+
+// Utils
+function randToken(n=12){ return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(n)))).replace(/[^A-Za-z0-9]/g,'').slice(0, n+5); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const r=new Uint32Array(1); crypto.getRandomValues(r); const j=r[0]%(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function genDerangement(n, forbid=true, maxT=200000){
+  if(n<3) throw new Error('Need at least 3');
+  for(let t=0;t<maxT;t++){
+    const p=[...Array(n).keys()]; shuffle(p);
+    if(p.some((v,i)=>v===i)) continue;
+    if(forbid && p.some((v,i)=>p[v]===i)) continue;
+    return p;
+  }
+  throw new Error('Could not generate mapping');
+}
+
+// Router
+async function main(){
+  const {s,t} = parseQuery();
+  if(!s && !t){ show(viewAdmin); return setupAdmin(); }
+  else { show(viewPart); return setupParticipant(s,t); }
+}
+
+// Admin view
+function setupAdmin(){
+  $('#btnCreate').addEventListener('click', async ()=>{
+    const names = $('#names').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    if(names.length < 3) return alert('At least 3 names.');
+    const perm = genDerangement(names.length, $('#noTwo').checked);
+
+    const sid = randToken(16);
+    const sessRef = db.collection('sessions').doc(sid);
+    const ownerUid = auth.currentUser?.uid || 'anonymous';
+
+    // Build invites (plaintext targets; global lock on revealed)
+    const invites = [];
+    for(let i=0;i<names.length;i++){
+      const giver = names[i];
+      const target = names[perm[i]];
+      const token = randToken(16);
+      invites.push({ token, name: giver, target, revealed: false, createdAt: new Date().toISOString() });
+    }
+
+    // Batch write
+    const batch = db.batch();
+    batch.set(sessRef, { createdAt: new Date().toISOString(), ownerUid, count:names.length, noTwo: $('#noTwo').checked });
+    for(const inv of invites){ batch.set(sessRef.collection('invites').doc(inv.token), inv); }
+    await batch.commit();
+
+    // Render links + live status
+    const base = location.origin + location.pathname;
+    const linksDiv = $('#links'); linksDiv.innerHTML = '';
+    for(const inv of invites){
+      const url = `${base}?s=${encodeURIComponent(sid)}&t=${encodeURIComponent(inv.token)}`;
+      const row = document.createElement('div');
+      row.innerHTML = `<div class='chip'>${inv.name}</div><div><code>${url}</code></div>`;
+      linksDiv.appendChild(row);
+    }
+
+    const statusDiv = $('#status');
+    sessRef.collection('invites').onSnapshot(snap=>{
+      const total = snap.size; let done = 0; const chips=[];
+      snap.forEach(doc=>{ const d=doc.data(); if(d.revealed) done++; chips.push(`<span class='chip'>${d.name} ${d.revealed?'✅':''}</span>`); });
+      statusDiv.innerHTML = `<div class='pill'>Session <b>${sid}</b></div><div class='divider'></div><div>Revealed: <b>${done}</b> / ${total}</div><div style='margin-top:8px'>${chips.join(' ')}</div>`;
+    });
+
+    alert('Session created! Share each person their link.');
+  });
+}
+
+// Participant view
+function setupParticipant(sid, token){
+  const intro = $('#partIntro');
+  if(!sid || !token){ intro.textContent='Invalid link'; return; }
+  const invRef = db.collection('sessions').doc(sid).collection('invites').doc(token);
+
+  invRef.get().then(doc=>{
+    if(!doc.exists){ intro.textContent='Invite not found'; return; }
+    const d = doc.data();
+    intro.innerHTML = `You are <b>${d.name}</b>.` + (d.revealed? " <span class='ok'>(already revealed)</span>": '');
+    if(d.revealed){ $('#btnReveal').disabled = true; }
+  });
+
+  $('#btnReveal').addEventListener('click', async ()=>{
+    const doc = await invRef.get();
+    if(!doc.exists) return alert('Invite vanished');
+    const d = doc.data();
+    if(d.revealed) return alert('Already revealed');
+
+    // Step 1: flip revealed -> true (rules allow only this change)
+    await invRef.update({ revealed: true, revealedAt: new Date().toISOString() });
+    // Step 2: read the target (rules allow read now that revealed==true)
+    const after = await invRef.get();
+    const name = after.data().target;
+    targetEl.textContent = name; ov.style.display='flex';
+  });
+  $('#btnHide').addEventListener('click', ()=>{ ov.style.display='none'; });
+  $('#closeOv').addEventListener('click', ()=>{ ov.style.display='none'; });
+}
+
+main();
+</script>
+</body>
+</html>
+
+<!-- ================= Firestore Security Rules (copy into Firebase console > Firestore > Rules) =================
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Sessions are readable for status; only owner (creator) may write session meta
+    match /sessions/{sid} {
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+
+      // Invites subcollection stores one doc per participant, docId == token
+      match /invites/{token} {
+        // Prevent listing; only allow get by exact doc id (requires token)
+        allow list: if false;
+        // Allow reading only after it has been revealed (so you can't pre-read)
+        allow get: if resource.data.revealed == true;
+        // Owner (admin) can create all invites
+        allow create: if request.auth != null && get(/databases/$(database)/documents/sessions/$(sid)).data.ownerUid == request.auth.uid;
+        // Participants may only flip revealed from false->true (and set revealedAt)
+        allow update: if request.auth != null
+                      && resource.data.revealed == false
+                      && request.resource.data.revealed == true
+                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['revealed','revealedAt']);
+        allow delete: if false;
+      }
+    }
+  }
+}
+// =============================================================================================== -->
