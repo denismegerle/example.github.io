@@ -5,42 +5,98 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Secret Santa — Sessions (GitHub Pages)</title>
 <style>
-  :root{--bg:#0b1020;--card:#111735;--muted:#7f8db3;--accent:#7dd3fc;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--text:#eef2ff}
+  /* ===== Theme tokens ===== */
+  :root{
+    color-scheme: dark light;
+    --bg:#0d1117; --bg2:#0d1117; --card:#0f1525; --card-2:#121a31;
+    --muted:#9aa4bf; --text:#eef2ff; --sub:#cad3ff;
+    --accent:#3b82f6; --accent-2:#06b6d4; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+    --ring:rgba(125,211,252,.45); --border:rgba(255,255,255,.10);
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:#f7f8fb; --bg2:#f7f8fb; --card:#ffffff; --card-2:#ffffff;
+    --muted:#6b7280; --text:#111827; --sub:#374151;
+    --accent:#2563eb; --accent-2:#06b6d4; --ok:#16a34a; --warn:#d97706; --err:#dc2626;
+    --ring:rgba(37,99,235,.30); --border:#e5e7eb;
+  }
+
   *{box-sizing:border-box}
-  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:linear-gradient(160deg,#0b1020,#0e1430 40%,#0c1230 100%); color:var(--text)}
-  .wrap{max-width:980px;margin:40px auto;padding:24px}
-  h1{font-size:28px;margin:0 0 8px}
-  h2{margin:0 0 8px}
-  .lead{margin:0 0 20px;color:var(--muted)}
-  .card{background:rgba(255,255,255,.04);backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  .grid{display:grid;gap:16px}
-  .g2{grid-template-columns:1fr 1fr}
-  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
-  @media (max-width:900px){.g2,.g3{grid-template-columns:1fr}}
-  label{font-weight:600;display:block;margin-bottom:8px}
-  textarea,input,select,button{width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:#0e1736; color:var(--text)}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+    color:var(--text);
+    background: var(--bg);
+  }
+
+  /* ===== Top bar (minimal) ===== */
+  .topbar{position:sticky; top:0; z-index:20; backdrop-filter: blur(6px);
+    background: color-mix(in oklab, var(--bg) 90%, #000 10%);
+    border-bottom:1px solid var(--border); padding:10px 16px}
+  .topbar .row{display:flex; align-items:center; gap:12px; max-width:1000px; margin:0 auto}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px}
+  .brand .logo{display:inline-grid; place-items:center; width:30px; height:30px; border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+  .brand span{opacity:.9}
+  .spacer{flex:1}
+  .btn{appearance:none; border:1px solid var(--border); background:transparent; color:var(--text);
+    padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer; transition:.18s ease}
+  .btn:hover{transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn.primary{border:0; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white}
+  .icon{font-size:16px}
+
+  /* ===== Layout ===== */
+  .wrap{max-width:1000px; margin:28px auto 60px; padding:0 16px}
+  .hero{margin:8px 0 18px}
+  h1{margin:0 0 10px; font-size:28px; letter-spacing:.2px}
+  .lead{margin:0; color:var(--muted)}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px}
+  .grid{display:grid; gap:16px}
+  .g2{grid-template-columns:1.2fr .8fr}
+  @media (max-width:960px){.g2{grid-template-columns:1fr}}
+
+  label{font-weight:700; display:block; margin:8px 0}
+  textarea,input{width:100%; padding:14px 16px; border-radius:12px; border:1px solid var(--border);
+    background:var(--card-2); color:var(--text); outline:none; transition: box-shadow .18s ease, border-color .18s ease}
   textarea{min-height:160px; resize:vertical}
-  button{cursor:pointer; font-weight:700; letter-spacing:.02em}
-  button.primary{background:linear-gradient(135deg,#2563eb,#06b6d4); border:none}
-  button.secondary{background:rgba(255,255,255,.06)}
-  button.success{background:linear-gradient(135deg,#16a34a,#22c55e); border:none}
+  textarea:focus, input:focus{border-color:var(--ring); box-shadow:0 0 0 4px color-mix(in oklab, var(--ring) 100%, transparent)}
+
+  .muted{color:var(--muted)}
+  .divider{height:1px; background:var(--border); margin:16px 0}
+  .tiny{font-size:12px}
+
+  /* ===== Settings row ===== */
+  .settings{display:grid; gap:6px}
+  .setting{display:flex; align-items:center; gap:10px; padding:8px 0}
+  .setting label{display:flex; align-items:center; gap:10px; margin:0; flex:1}
+  .setting .desc{color:var(--muted)}
+
+  /* ===== Session grid ===== */
+  .gridNames{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .nameBtn{display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:14px 16px; border-radius:12px; background:var(--card-2);
+    border:1px solid var(--border); font-weight:800; letter-spacing:.3px; cursor:pointer; transition:.18s ease}
+  .nameBtn:hover{transform:translateY(-1px)}
+  .nameBtn[disabled]{opacity:.55; cursor:not-allowed; transform:none}
+  .tag{font-size:12px; opacity:.85; padding:6px 8px; border-radius:10px; border:1px solid var(--border)}
+  .tag.ok{border-color:color-mix(in oklab, var(--ok) 40%, var(--border)); color:color-mix(in oklab, var(--ok) 80%, var(--text) 20%)}
+
+  .progress{height:8px; background:transparent; border:1px solid var(--border); border-radius:999px; overflow:hidden}
+  .bar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width .25s ease}
+
+  /* ===== Modal ===== */
+  .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter: blur(5px); background:color-mix(in oklab, var(--bg) 20%, #000 50%)}
+  .reveal{background:var(--card); border:1px solid var(--border); border-radius:18px; padding:24px 22px; max-width:720px; margin:0 18px; text-align:center}
+  .big{font-size:42px; font-weight:900; letter-spacing:.3px; margin:8px 0 6px}
+  .subtle{opacity:.8}
+
   .row{display:flex; gap:12px; align-items:center}
   .row>*{flex:1}
-  .muted{color:var(--muted)}
-  .chip{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);margin:4px 6px 0 0;font-size:12px}
-  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .right{justify-content:flex-end}
   .hide{display:none}
-  .divider{height:1px;background:rgba(255,255,255,.12);margin:16px 0}
-  .pill{display:inline-flex;align-items:center;gap:8px;background:rgba(125,211,252,.12);border:1px solid rgba(125,211,252,.35);color:#e0f2fe;padding:8px 10px;border-radius:999px}
-  .center{text-align:center}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,15,.7);backdrop-filter: blur(4px);display:none;align-items:center;justify-content:center;z-index:50}
-  .reveal{background:var(--card); border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:24px 22px; max-width:720px; margin:0 18px; box-shadow:0 20px 60px rgba(0,0,0,.45); text-align:center}
-  .big{font-size:40px; font-weight:800; letter-spacing:.02em; margin:10px 0 4px}
-  .gridNames{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
-  .nameBtn{display:flex;align-items:center;justify-content:center; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:#0e1736; color:var(--text); font-weight:700}
-  .nameBtn[disabled]{opacity:.55; cursor:not-allowed}
-  .subtle{opacity:.8}
-  .copy{font-size:12px}
+  .copybtn{min-width:110px}
 </style>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
@@ -48,56 +104,105 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<header class="topbar">
+  <div class="row">
+    <div class="brand">
+      <div class="logo">🎁</div>
+      <span>Secret&nbsp;Santa</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="btnTheme" title="Toggle theme"><span class="icon" id="themeIcon">🌙</span></button>
+    <button class="btn" id="btnShare" title="Copy link">Share</button>
+  </div>
+</header>
+
 <div class="wrap">
-  <h1>🎄 Secret Santa — Sessions (no keys)</h1>
-  <p class="lead">Create a session, then share the <b>single session link</b>. On that page, everyone sees <b>one button per person</b>. When a person clicks their own button, they privately see their partner and that button locks for all.</p>
+  <section class="hero">
+    <h1>Gift pairing, made simple</h1>
+    <p class="lead">Create a session and share one link. Everyone sees their name as a button. Click to reveal your partner; the button locks for all.</p>
+  </section>
 
   <!-- Admin / Creator View -->
-  <div id="view-admin" class="card grid g2 hide">
+  <section id="view-admin" class="card grid g2 hide" aria-labelledby="admin-title">
     <div>
-      <h2>1) Create session</h2>
-      <label>Names (one per line)</label>
-      <textarea id="names" placeholder="Alice\nBob\nCharlie\n…"></textarea>
-      <div class="row" style="margin-top:10px">
-        <label class="row" style="align-items:center;gap:8px;flex:0 0 auto">
-          <input type="checkbox" id="noTwo" checked style="width:auto"> No mutual pairs (no A↔B)
-        </label>
-        <button class="primary" id="btnCreate">Create session</button>
+      <h2 id="admin-title">Create session</h2>
+      <label for="names">Names (one per line)</label>
+      <textarea id="names" aria-label="Names" placeholder="Alice&#10;Bob&#10;Charlie&#10;…"></textarea>
+
+      <div class="settings">
+        <div class="setting">
+          <label for="noTwo">
+            <input type="checkbox" id="noTwo" checked style="width:auto">
+            <span style="font-weight:700">No mutual pairs (no A↔B)</span>
+          </label>
+          <div class="desc tiny">Prevents A↔B two-cycles</div>
+        </div>
       </div>
+
+      <div class="row" style="margin-top:8px">
+        <div class="tiny muted" id="namesHint">0 names</div>
+        <div class="spacer"></div>
+        <button class="btn primary" id="btnCreate">Create session</button>
+      </div>
+
       <div class="divider"></div>
-      <p class="muted">Static app uses Firebase Firestore (Anonymous Auth). Make sure your GitHub Pages domain is in Firebase <b>Auth → Authorized domains</b>.</p>
-      <div class="banner" id="authInfo">Auth: <em>initializing…</em></div>
+      <p class="tiny" id="authInfo">Auth: <em>initializing…</em></p>
     </div>
+
     <div>
-      <h2>2) Share this link</h2>
-      <div id="share" class="muted">Create a session to get a link.</div>
+      <h3>Share link</h3>
+      <div id="share" class="muted tiny">Create a session to get a link.</div>
       <div class="divider"></div>
-      <div id="adminStatus"></div>
+      <div id="adminStatus" class="tiny muted"></div>
     </div>
-  </div>
+  </section>
 
   <!-- Shared Session View -->
-  <div id="view-session" class="card hide">
-    <h2>Session</h2>
-    <div id="sessInfo" class="muted">Loading session…</div>
+  <section id="view-session" class="card hide" aria-labelledby="sess-title">
+    <div class="row" style="align-items:flex-end">
+      <div style="flex:2">
+        <h2 id="sess-title">Session</h2>
+        <div id="sessInfo" class="muted tiny">Loading session…</div>
+      </div>
+      <div style="flex:1">
+        <div class="progress" aria-label="Reveal progress"><div class="bar" id="progBar" style="width:0%"></div></div>
+        <div id="sessionStatus" class="tiny muted" style="margin-top:8px"></div>
+      </div>
+    </div>
     <div class="divider"></div>
-    <div id="nameGrid" class="gridNames"></div>
-    <div class="divider"></div>
-    <div id="sessionStatus"></div>
-  </div>
+    <div id="nameGrid" class="gridNames" aria-live="polite"></div>
+  </section>
 </div>
 
-<div class="overlay" id="ov">
+<div class="overlay" id="ov" role="dialog" aria-modal="true" aria-labelledby="reveal-title">
   <div class="reveal">
-    <div class="subtle">Your person is</div>
+    <div class="subtle" id="reveal-title">Your person is</div>
     <div class="big" id="target">?</div>
-    <div class="row" style="justify-content:center;margin-top:10px">
-      <button class="secondary" id="closeOv">Close</button>
+    <div class="row right" style="margin-top:12px">
+      <button class="btn" id="closeOv">Close</button>
     </div>
   </div>
 </div>
 
 <script>
+// ===== Theme handling =====
+const THEME_KEY = 'ss_theme';
+function setTheme(mode){
+  document.documentElement.dataset.theme = mode;
+  localStorage.setItem(THEME_KEY, mode);
+  document.querySelector('#themeIcon').textContent = mode === 'light' ? '🌞' : '🌙';
+}
+(function initTheme(){
+  const saved = localStorage.getItem(THEME_KEY);
+  const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  setTheme(saved || (prefersLight ? 'light' : 'dark'));
+})();
+
+document.querySelector('#btnTheme').addEventListener('click', ()=>{
+  const cur = document.documentElement.dataset.theme || 'dark';
+  setTheme(cur === 'dark' ? 'light' : 'dark');
+});
+
 // ===== Firebase web config (PUBLIC identifiers; do not put secrets here) =====
 const firebaseConfig = {
   apiKey: "AIzaSyA0tQ3pn4M-iPSa7lbKnCAt9cdPORulWPI",
@@ -137,6 +242,8 @@ const viewAdmin = $('#view-admin');
 const viewSession  = $('#view-session');
 const ov = $('#ov');
 const targetEl = $('#target');
+const progBar = $('#progBar');
+const namesEl = $('#names');
 
 function parseQuery(){
   const u = new URL(location.href);
@@ -165,11 +272,26 @@ async function initApp(){
   else { show(viewSession); setupSharedSession(sid); }
 }
 
+// Share (top bar)
+$('#btnShare').addEventListener('click', ()=>{
+  const {sid} = parseQuery();
+  const url = location.origin + location.pathname + (sid ? `?session=${encodeURIComponent(sid)}` : '');
+  if(navigator.share){ navigator.share({ title:'Secret Santa', url }).catch(()=>{}); }
+  else { navigator.clipboard.writeText(url).then(()=> alert('Link copied')); }
+});
+
 // Admin view (create session & share one link)
 function setupAdmin(){
+  const hint = $('#namesHint');
+  const updateCount = ()=>{
+    const c = (namesEl.value || '').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).length;
+    hint.textContent = `${c} name${c===1?'':'s'}`;
+  };
+  namesEl.addEventListener('input', updateCount); updateCount();
+
   $('#btnCreate').addEventListener('click', async ()=>{
     await waitForAuth();
-    const names = $('#names').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const names = namesEl.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
     if(names.length < 3) return alert('At least 3 names.');
     const noTwo = $('#noTwo').checked;
     const perm = genDerangement(names.length, noTwo);
@@ -193,31 +315,26 @@ function setupAdmin(){
       batch.set(sessRef.collection('secrets').doc(pid), { target });
     }
 
-    // Commit players + secrets first (works with your current rules)
     await batch.commit();
 
-    // 2b) OPTIONAL: write public index in a separate call.
-    // If your rules don't include /meta create permissions, this will gracefully fall back.
-    try {
-      await sessRef.collection('meta').doc('players_index').set({ entries: players, createdAt: new Date().toISOString() });
-    } catch (e) {
-      console.warn('players_index write skipped (rules deny create on /meta). Falling back to collection listener.', e);
-    }
+    // Optional: public index
+    try { await sessRef.collection('meta').doc('players_index').set({ entries: players, createdAt: new Date().toISOString() }); }
+    catch(e){ console.warn('players_index write skipped (rules deny /meta).', e); }
 
-    // 3) Show shareable link
+    // 3) Share link UI (copy only)
     const base = location.origin + location.pathname;
     const sessionUrl = `${base}?session=${encodeURIComponent(sid)}`;
     const shareDiv = $('#share');
     shareDiv.innerHTML = `
       <div class="row">
         <input id="shareLink" value="${sessionUrl}" readonly />
-        <button class="secondary copy" id="copyBtn">Copy</button>
+        <button class="btn copybtn" id="copyBtn">Copy</button>
       </div>
-      <div class="muted" style="margin-top:8px">Share this URL. Everyone will see the buttons for all names and can reveal their own.</div>
+      <div class="tiny muted" style="margin-top:8px">Share this URL. Everyone will see all names and can reveal their own.</div>
     `;
-    $('#copyBtn').onclick = ()=>{ navigator.clipboard.writeText(sessionUrl).then(()=>alert('Link copied')); };
+    $('#copyBtn').onclick = ()=>{ navigator.clipboard.writeText(sessionUrl).then(()=>{ const b=$('#copyBtn'); const t=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=t, 1200); }); };
 
-    // 4) Live status for creator as well
+    // 4) Live status for creator
     attachSharedStatus(sessRef, sid);
   });
 }
@@ -234,10 +351,8 @@ function attachSharedStatus(sessRef, sid){
   const grid = $('#nameGrid');
   const statusDiv = $('#sessionStatus');
 
-  // Keep a map of player states
   const players = new Map(); // pid -> {name,revealed}
 
-  // Render function
   function render(){
     grid.innerHTML = '';
     let done = 0; const total = players.size;
@@ -246,39 +361,38 @@ function attachSharedStatus(sessRef, sid){
       const btn = document.createElement('button');
       btn.className = 'nameBtn';
       btn.disabled = !!pl.revealed;
-      btn.innerHTML = pl.revealed ? `${pl.name} ✅` : `${pl.name} — Reveal`;
+      btn.innerHTML = `<span>${pl.name}</span><span class="tag ${pl.revealed?'ok':''}">${pl.revealed?'Revealed':'Reveal'}</span>`;
       btn.addEventListener('click', ()=>confirmAndReveal(sessRef, sid, pid, pl.name));
       grid.appendChild(btn);
     });
-    statusDiv.innerHTML = `<div class='pill'>Revealed: <b>${done}</b> / ${total}</div>`;
+    statusDiv.textContent = `Revealed: ${done} / ${total}`;
+    const pct = total? Math.round(done/total*100) : 0; progBar.style.width = pct + '%';
   }
 
-  // Strategy: first try public index (no list perms needed). If missing, fall back to collection listen.
+  // Prefer index; fall back to collection
   sessRef.collection('meta').doc('players_index').get().then(idx=>{
     if(idx.exists){
       const {entries=[]} = idx.data();
       entries.forEach(e=>players.set(e.pid, {name:e.name, revealed:false}));
       render();
-      // per-doc listeners
       for(const e of entries){
         sessRef.collection('players').doc(e.pid).onSnapshot(doc=>{
           if(doc.exists){ const d = doc.data(); players.set(doc.id, {name:e.name, revealed:!!d.revealed}); render(); }
         }, err=>{ console.error('Player doc listen error', err); });
       }
     } else {
-      // Fallback: direct collection subscription (requires allow list on players)
       sessRef.collection('players').onSnapshot(snap=>{
         players.clear();
         snap.forEach(doc=>{ const d=doc.data(); players.set(doc.id, {name:d.name, revealed:!!d.revealed}); });
         render();
       }, err=>{
         console.error('Players subscribe error', err);
-        grid.innerHTML = `<span class='err'>Cannot list players. Either publish the rules with <code>allow read</code> on <code>players</code>, or rely on the built-in public index (create a new session).</span>`;
+        grid.innerHTML = `<span class='tiny' style='color:var(--err)'>Cannot list players. Publish rules with <code>allow read</code> on <code>players</code>, or recreate the session after enabling /meta index.</span>`;
       });
     }
   }).catch(err=>{
     console.error('Index read error', err);
-    grid.innerHTML = `<span class='err'>Cannot load session index. Check Firestore rules.</span>`;
+    grid.innerHTML = `<span class='tiny' style='color:var(--err)'>Cannot load session index. Check Firestore rules.</span>`;
   });
 }
 
@@ -293,10 +407,8 @@ async function confirmAndReveal(sessRef, sid, pid, name){
     if(!snap.exists) return alert('Player not found.');
     if(snap.data().revealed) return alert('Already revealed.');
 
-    // Flip revealed first (rules require this before reading secret)
     await playerRef.update({ revealed:true, revealedAt: new Date().toISOString() });
 
-    // Read target and show privately in this client
     const sec = await secretRef.get();
     const tgt = sec.exists ? sec.data().target : '(missing)';
     targetEl.textContent = tgt; ov.style.display='flex';
@@ -313,33 +425,21 @@ $('#closeOv').addEventListener('click', ()=>{ ov.style.display='none'; });
    ======================= */
 (function selfTests(){
   try {
-    // split tests (\n and \r\n), blank-line trimming
     const raw = "Alice\nBob\r\nCharlie\n\n";
     const arr = raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
     console.assert(arr.length===3 && arr[0]==='Alice' && arr[1]==='Bob' && arr[2]==='Charlie', 'Split test failed');
 
-    // derangement tests: forbid 2-cycles
     for(let n=3;n<=10;n++){
       const p = genDerangement(n, true);
       console.assert(p.every((v,i)=>v!==i), 'Derangement fixed point fail');
       let two=false; for(let i=0;i<n;i++){ if(p[p[i]]===i){ two=true; break; } }
       console.assert(!two, 'Derangement 2-cycle fail');
     }
-
-    // derangement tests: allow 2-cycles but still no fixed points
     for(let n=3;n<=10;n++){
       const p = genDerangement(n, false);
       console.assert(p.every((v,i)=>v!==i), 'Derangement (noTwo=false) fixed point fail');
     }
-
-    // token format
     const tok = randToken(16); console.assert(/^[A-Za-z0-9]{10,}$/.test(tok), 'Token format');
-
-    // index render smoke test
-    const entries = [{pid:'p1',name:'Amy'},{pid:'p2',name:'Ben'}];
-    const map = new Map(entries.map(e=>[e.pid,{name:e.name, revealed:false}]));
-    map.get('p1').revealed = true;
-    const done = [...map.values()].filter(v=>v.revealed).length; console.assert(done===1, 'Status count');
 
     console.log('%cSelf-tests passed','color:#22c55e');
   } catch(e){ console.warn('Self-tests error:', e); }
