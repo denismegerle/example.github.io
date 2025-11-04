@@ -13,7 +13,10 @@
   h2{margin:0 0 8px}
   .lead{margin:0 0 20px;color:var(--muted)}
   .card{background:rgba(255,255,255,.04);backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  .grid{display:grid;gap:16px} .g2{grid-template-columns:1fr 1fr} @media (max-width:900px){.g2{grid-template-columns:1fr}}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media (max-width:900px){.g2,.g3{grid-template-columns:1fr}}
   label{font-weight:600;display:block;margin-bottom:8px}
   textarea,input,select,button{width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:#0e1736; color:var(--text)}
   textarea{min-height:160px; resize:vertical}
@@ -33,6 +36,11 @@
   .overlay{position:fixed;inset:0;background:rgba(0,0,15,.7);backdrop-filter: blur(4px);display:none;align-items:center;justify-content:center;z-index:50}
   .reveal{background:var(--card); border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:24px 22px; max-width:720px; margin:0 18px; box-shadow:0 20px 60px rgba(0,0,0,.45); text-align:center}
   .big{font-size:40px; font-weight:800; letter-spacing:.02em; margin:10px 0 4px}
+  .gridNames{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+  .nameBtn{display:flex;align-items:center;justify-content:center; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:#0e1736; color:var(--text); font-weight:700}
+  .nameBtn[disabled]{opacity:.55; cursor:not-allowed}
+  .subtle{opacity:.8}
+  .copy{font-size:12px}
 </style>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
@@ -42,12 +50,13 @@
 <body>
 <div class="wrap">
   <h1>🎄 Secret Santa — Sessions (no keys)</h1>
-  <p class="lead">Create a session link, share it with everyone. Each person opens their private link on their own device. After someone reveals, that person is globally locked.</p>
+  <p class="lead">Create a session, then share the <b>single session link</b>. On that page, everyone sees <b>one button per person</b>. When a person clicks their own button, they privately see their partner and that button locks for all.</p>
 
+  <!-- Admin / Creator View -->
   <div id="view-admin" class="card grid g2 hide">
     <div>
-      <h2>Admin — Create session</h2>
-      <label>1) Names (one per line)</label>
+      <h2>1) Create session</h2>
+      <label>Names (one per line)</label>
       <textarea id="names" placeholder="Alice\nBob\nCharlie\n…"></textarea>
       <div class="row" style="margin-top:10px">
         <label class="row" style="align-items:center;gap:8px;flex:0 0 auto">
@@ -56,30 +65,31 @@
         <button class="primary" id="btnCreate">Create session</button>
       </div>
       <div class="divider"></div>
-      <p class="muted">This static page uses Firebase Firestore (anonymous auth) for shared state. Organizer blindness is by policy (mapping is not shown here), but the DB owner could inspect it.</p>
+      <p class="muted">Static app uses Firebase Firestore (Anonymous Auth). Make sure your GitHub Pages domain is in Firebase <b>Auth → Authorized domains</b>.</p>
+      <div class="banner" id="authInfo">Auth: <em>initializing…</em></div>
     </div>
     <div>
-      <h2>Share links</h2>
-      <div id="links"></div>
+      <h2>2) Share this link</h2>
+      <div id="share" class="muted">Create a session to get a link.</div>
       <div class="divider"></div>
-      <div id="status"></div>
+      <div id="adminStatus"></div>
     </div>
   </div>
 
-  <div id="view-part" class="card hide">
-    <h2>Participant — Reveal</h2>
-    <div id="partIntro" class="muted">Loading…</div>
+  <!-- Shared Session View -->
+  <div id="view-session" class="card hide">
+    <h2>Session</h2>
+    <div id="sessInfo" class="muted">Loading session…</div>
     <div class="divider"></div>
-    <div class="row">
-      <button id="btnReveal" class="success">Reveal now</button>
-      <button id="btnHide" class="secondary">Hide</button>
-    </div>
+    <div id="nameGrid" class="gridNames"></div>
+    <div class="divider"></div>
+    <div id="sessionStatus"></div>
   </div>
 </div>
 
 <div class="overlay" id="ov">
   <div class="reveal">
-    <div style="opacity:.8">Your person is</div>
+    <div class="subtle">Your person is</div>
     <div class="big" id="target">?</div>
     <div class="row" style="justify-content:center;margin-top:10px">
       <button class="secondary" id="closeOv">Close</button>
@@ -88,43 +98,51 @@
 </div>
 
 <script>
-// ===== 1) Paste your Firebase web config here =====
-  const firebaseConfig = {
-
-    apiKey: "AIzaSyA0tQ3pn4M-iPSa7lbKnCAt9cdPORulWPI",
-
-    authDomain: "secret-santa-bd69d.firebaseapp.com",
-
-    projectId: "secret-santa-bd69d",
-
-    storageBucket: "secret-santa-bd69d.firebasestorage.app",
-
-    messagingSenderId: "864686307297",
-
-    appId: "1:864686307297:web:ec2c3f022d704363d844a0",
-
-    measurementId: "G-V6V6R54R0X"
-
-  };
-// ===================================================
+// ===== Firebase web config (PUBLIC identifiers; do not put secrets here) =====
+const firebaseConfig = {
+  apiKey: "AIzaSyA0tQ3pn4M-iPSa7lbKnCAt9cdPORulWPI",
+  authDomain: "secret-santa-bd69d.firebaseapp.com",
+  projectId: "secret-santa-bd69d",
+  storageBucket: "secret-santa-bd69d.firebasestorage.app",
+  messagingSenderId: "864686307297",
+  appId: "1:864686307297:web:ec2c3f022d704363d844a0",
+  measurementId: "G-V6V6R54R0X"
+};
+// ============================================================================
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-auth.signInAnonymously().catch(console.error);
+
+// Auth readiness & helper
+let AUTH_READY = false;
+let authReadyResolvers = [];
+function waitForAuth(){ return AUTH_READY ? Promise.resolve() : new Promise(res=>authReadyResolvers.push(res)); }
+
+auth.onAuthStateChanged((u)=>{
+  AUTH_READY = !!u;
+  const info = document.querySelector('#authInfo');
+  if(info) info.textContent = AUTH_READY ? `Auth: ready (uid ${u.uid.slice(0,6)}…)` : 'Auth: not signed in';
+  if (AUTH_READY) { authReadyResolvers.splice(0).forEach(fn=>fn()); initApp(); }
+});
+
+auth.signInAnonymously().catch((e)=>{
+  console.error('Anon auth error', e);
+  alert('Anonymous auth failed. In Firebase Auth → Authorized domains, add your GitHub Pages domain (e.g., yourname.github.io).');
+});
 
 // UI helpers
 const $ = (s)=>document.querySelector(s);
 const viewAdmin = $('#view-admin');
-const viewPart  = $('#view-part');
+const viewSession  = $('#view-session');
 const ov = $('#ov');
 const targetEl = $('#target');
 
 function parseQuery(){
   const u = new URL(location.href);
-  return { s: u.searchParams.get('s'), t: u.searchParams.get('t') };
+  return { sid: u.searchParams.get('session') || u.searchParams.get('s') };
 }
-function show(id){ [viewAdmin, viewPart].forEach(el=>el.classList.add('hide')); id.classList.remove('hide'); }
+function show(id){ [viewAdmin, viewSession].forEach(el=>el.classList.add('hide')); id.classList.remove('hide'); }
 
 // Utils
 function randToken(n=12){ return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(n)))).replace(/[^A-Za-z0-9]/g,'').slice(0, n+5); }
@@ -140,121 +158,192 @@ function genDerangement(n, forbid=true, maxT=200000){
   throw new Error('Could not generate mapping');
 }
 
-// Router
-async function main(){
-  const {s,t} = parseQuery();
-  if(!s && !t){ show(viewAdmin); return setupAdmin(); }
-  else { show(viewPart); return setupParticipant(s,t); }
+async function initApp(){
+  await waitForAuth();
+  const {sid} = parseQuery();
+  if(!sid){ show(viewAdmin); setupAdmin(); }
+  else { show(viewSession); setupSharedSession(sid); }
 }
 
-// Admin view
+// Admin view (create session & share one link)
 function setupAdmin(){
   $('#btnCreate').addEventListener('click', async ()=>{
+    await waitForAuth();
     const names = $('#names').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
     if(names.length < 3) return alert('At least 3 names.');
-    const perm = genDerangement(names.length, $('#noTwo').checked);
+    const noTwo = $('#noTwo').checked;
+    const perm = genDerangement(names.length, noTwo);
 
     const sid = randToken(16);
     const sessRef = db.collection('sessions').doc(sid);
     const ownerUid = auth.currentUser?.uid || 'anonymous';
 
-    // Build invites (plaintext targets; global lock on revealed)
-    const invites = [];
+    // 1) Create session doc first
+    await sessRef.set({ createdAt: new Date().toISOString(), ownerUid, count:names.length, noTwo });
+
+    // 2) Create players (public) and secrets (target)
+    const batch = db.batch();
+    const players = [];
     for(let i=0;i<names.length;i++){
-      const giver = names[i];
+      const name = names[i];
+      const pid = randToken(12);
       const target = names[perm[i]];
-      const token = randToken(16);
-      invites.push({ token, name: giver, target, revealed: false, createdAt: new Date().toISOString() });
+      players.push({pid,name});
+      batch.set(sessRef.collection('players').doc(pid), { name, revealed:false, createdAt: new Date().toISOString() });
+      batch.set(sessRef.collection('secrets').doc(pid), { target });
     }
 
-    // Batch write
-    const batch = db.batch();
-    batch.set(sessRef, { createdAt: new Date().toISOString(), ownerUid, count:names.length, noTwo: $('#noTwo').checked });
-    for(const inv of invites){ batch.set(sessRef.collection('invites').doc(inv.token), inv); }
+    // Commit players + secrets first (works with your current rules)
     await batch.commit();
 
-    // Render links + live status
-    const base = location.origin + location.pathname;
-    const linksDiv = $('#links'); linksDiv.innerHTML = '';
-    for(const inv of invites){
-      const url = `${base}?s=${encodeURIComponent(sid)}&t=${encodeURIComponent(inv.token)}`;
-      const row = document.createElement('div');
-      row.innerHTML = `<div class='chip'>${inv.name}</div><div><code>${url}</code></div>`;
-      linksDiv.appendChild(row);
+    // 2b) OPTIONAL: write public index in a separate call.
+    // If your rules don't include /meta create permissions, this will gracefully fall back.
+    try {
+      await sessRef.collection('meta').doc('players_index').set({ entries: players, createdAt: new Date().toISOString() });
+    } catch (e) {
+      console.warn('players_index write skipped (rules deny create on /meta). Falling back to collection listener.', e);
     }
 
-    const statusDiv = $('#status');
-    sessRef.collection('invites').onSnapshot(snap=>{
-      const total = snap.size; let done = 0; const chips=[];
-      snap.forEach(doc=>{ const d=doc.data(); if(d.revealed) done++; chips.push(`<span class='chip'>${d.name} ${d.revealed?'✅':''}</span>`); });
-      statusDiv.innerHTML = `<div class='pill'>Session <b>${sid}</b></div><div class='divider'></div><div>Revealed: <b>${done}</b> / ${total}</div><div style='margin-top:8px'>${chips.join(' ')}</div>`;
+    // 3) Show shareable link
+    const base = location.origin + location.pathname;
+    const sessionUrl = `${base}?session=${encodeURIComponent(sid)}`;
+    const shareDiv = $('#share');
+    shareDiv.innerHTML = `
+      <div class="row">
+        <input id="shareLink" value="${sessionUrl}" readonly />
+        <button class="secondary copy" id="copyBtn">Copy</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Share this URL. Everyone will see the buttons for all names and can reveal their own.</div>
+    `;
+    $('#copyBtn').onclick = ()=>{ navigator.clipboard.writeText(sessionUrl).then(()=>alert('Link copied')); };
+
+    // 4) Live status for creator as well
+    attachSharedStatus(sessRef, sid);
+  });
+}
+
+// Shared Session page — anyone with the link
+function setupSharedSession(sid){
+  const sessRef = db.collection('sessions').doc(sid);
+  const info = $('#sessInfo');
+  info.textContent = `Session: ${sid}`;
+  attachSharedStatus(sessRef, sid);
+}
+
+function attachSharedStatus(sessRef, sid){
+  const grid = $('#nameGrid');
+  const statusDiv = $('#sessionStatus');
+
+  // Keep a map of player states
+  const players = new Map(); // pid -> {name,revealed}
+
+  // Render function
+  function render(){
+    grid.innerHTML = '';
+    let done = 0; const total = players.size;
+    [...players.entries()].sort((a,b)=>a[1].name.localeCompare(b[1].name)).forEach(([pid, pl])=>{
+      if(pl.revealed) done++;
+      const btn = document.createElement('button');
+      btn.className = 'nameBtn';
+      btn.disabled = !!pl.revealed;
+      btn.innerHTML = pl.revealed ? `${pl.name} ✅` : `${pl.name} — Reveal`;
+      btn.addEventListener('click', ()=>confirmAndReveal(sessRef, sid, pid, pl.name));
+      grid.appendChild(btn);
     });
+    statusDiv.innerHTML = `<div class='pill'>Revealed: <b>${done}</b> / ${total}</div>`;
+  }
 
-    alert('Session created! Share each person their link.');
+  // Strategy: first try public index (no list perms needed). If missing, fall back to collection listen.
+  sessRef.collection('meta').doc('players_index').get().then(idx=>{
+    if(idx.exists){
+      const {entries=[]} = idx.data();
+      entries.forEach(e=>players.set(e.pid, {name:e.name, revealed:false}));
+      render();
+      // per-doc listeners
+      for(const e of entries){
+        sessRef.collection('players').doc(e.pid).onSnapshot(doc=>{
+          if(doc.exists){ const d = doc.data(); players.set(doc.id, {name:e.name, revealed:!!d.revealed}); render(); }
+        }, err=>{ console.error('Player doc listen error', err); });
+      }
+    } else {
+      // Fallback: direct collection subscription (requires allow list on players)
+      sessRef.collection('players').onSnapshot(snap=>{
+        players.clear();
+        snap.forEach(doc=>{ const d=doc.data(); players.set(doc.id, {name:d.name, revealed:!!d.revealed}); });
+        render();
+      }, err=>{
+        console.error('Players subscribe error', err);
+        grid.innerHTML = `<span class='err'>Cannot list players. Either publish the rules with <code>allow read</code> on <code>players</code>, or rely on the built-in public index (create a new session).</span>`;
+      });
+    }
+  }).catch(err=>{
+    console.error('Index read error', err);
+    grid.innerHTML = `<span class='err'>Cannot load session index. Check Firestore rules.</span>`;
   });
 }
 
-// Participant view
-function setupParticipant(sid, token){
-  const intro = $('#partIntro');
-  if(!sid || !token){ intro.textContent='Invalid link'; return; }
-  const invRef = db.collection('sessions').doc(sid).collection('invites').doc(token);
+async function confirmAndReveal(sessRef, sid, pid, name){
+  if(!confirm(`Are you ${name}?`)) return;
+  try{
+    await waitForAuth();
+    const playerRef = sessRef.collection('players').doc(pid);
+    const secretRef = sessRef.collection('secrets').doc(pid);
 
-  invRef.get().then(doc=>{
-    if(!doc.exists){ intro.textContent='Invite not found'; return; }
-    const d = doc.data();
-    intro.innerHTML = `You are <b>${d.name}</b>.` + (d.revealed? " <span class='ok'>(already revealed)</span>": '');
-    if(d.revealed){ $('#btnReveal').disabled = true; }
-  });
+    const snap = await playerRef.get();
+    if(!snap.exists) return alert('Player not found.');
+    if(snap.data().revealed) return alert('Already revealed.');
 
-  $('#btnReveal').addEventListener('click', async ()=>{
-    const doc = await invRef.get();
-    if(!doc.exists) return alert('Invite vanished');
-    const d = doc.data();
-    if(d.revealed) return alert('Already revealed');
+    // Flip revealed first (rules require this before reading secret)
+    await playerRef.update({ revealed:true, revealedAt: new Date().toISOString() });
 
-    // Step 1: flip revealed -> true (rules allow only this change)
-    await invRef.update({ revealed: true, revealedAt: new Date().toISOString() });
-    // Step 2: read the target (rules allow read now that revealed==true)
-    const after = await invRef.get();
-    const name = after.data().target;
-    targetEl.textContent = name; ov.style.display='flex';
-  });
-  $('#btnHide').addEventListener('click', ()=>{ ov.style.display='none'; });
-  $('#closeOv').addEventListener('click', ()=>{ ov.style.display='none'; });
+    // Read target and show privately in this client
+    const sec = await secretRef.get();
+    const tgt = sec.exists ? sec.data().target : '(missing)';
+    targetEl.textContent = tgt; ov.style.display='flex';
+  }catch(e){
+    console.error('Reveal error', e);
+    alert('Reveal failed due to permissions. Ensure Anonymous Auth is enabled, rules are published, and your domain is authorized.');
+  }
 }
 
-main();
+$('#closeOv').addEventListener('click', ()=>{ ov.style.display='none'; });
+
+/* =======================
+   Minimal self-tests (console)
+   ======================= */
+(function selfTests(){
+  try {
+    // split tests (\n and \r\n), blank-line trimming
+    const raw = "Alice\nBob\r\nCharlie\n\n";
+    const arr = raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    console.assert(arr.length===3 && arr[0]==='Alice' && arr[1]==='Bob' && arr[2]==='Charlie', 'Split test failed');
+
+    // derangement tests: forbid 2-cycles
+    for(let n=3;n<=10;n++){
+      const p = genDerangement(n, true);
+      console.assert(p.every((v,i)=>v!==i), 'Derangement fixed point fail');
+      let two=false; for(let i=0;i<n;i++){ if(p[p[i]]===i){ two=true; break; } }
+      console.assert(!two, 'Derangement 2-cycle fail');
+    }
+
+    // derangement tests: allow 2-cycles but still no fixed points
+    for(let n=3;n<=10;n++){
+      const p = genDerangement(n, false);
+      console.assert(p.every((v,i)=>v!==i), 'Derangement (noTwo=false) fixed point fail');
+    }
+
+    // token format
+    const tok = randToken(16); console.assert(/^[A-Za-z0-9]{10,}$/.test(tok), 'Token format');
+
+    // index render smoke test
+    const entries = [{pid:'p1',name:'Amy'},{pid:'p2',name:'Ben'}];
+    const map = new Map(entries.map(e=>[e.pid,{name:e.name, revealed:false}]));
+    map.get('p1').revealed = true;
+    const done = [...map.values()].filter(v=>v.revealed).length; console.assert(done===1, 'Status count');
+
+    console.log('%cSelf-tests passed','color:#22c55e');
+  } catch(e){ console.warn('Self-tests error:', e); }
+})();
 </script>
 </body>
 </html>
-
-<!-- ================= Firestore Security Rules (copy into Firebase console > Firestore > Rules) =================
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Sessions are readable for status; only owner (creator) may write session meta
-    match /sessions/{sid} {
-      allow get, list: if true;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-
-      // Invites subcollection stores one doc per participant, docId == token
-      match /invites/{token} {
-        // Prevent listing; only allow get by exact doc id (requires token)
-        allow list: if false;
-        // Allow reading only after it has been revealed (so you can't pre-read)
-        allow get: if resource.data.revealed == true;
-        // Owner (admin) can create all invites
-        allow create: if request.auth != null && get(/databases/$(database)/documents/sessions/$(sid)).data.ownerUid == request.auth.uid;
-        // Participants may only flip revealed from false->true (and set revealedAt)
-        allow update: if request.auth != null
-                      && resource.data.revealed == false
-                      && request.resource.data.revealed == true
-                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['revealed','revealedAt']);
-        allow delete: if false;
-      }
-    }
-  }
-}
-// =============================================================================================== -->
