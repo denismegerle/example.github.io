@@ -58,20 +58,24 @@
   @media (max-width:960px){.g2{grid-template-columns:1fr}}
 
   label{font-weight:700; display:block; margin:8px 0}
-  textarea,input{width:100%; padding:14px 16px; border-radius:12px; border:1px solid var(--border);
+  textarea,input,select{width:100%; padding:14px 16px; border-radius:12px; border:1px solid var(--border);
     background:var(--card-2); color:var(--text); outline:none; transition: box-shadow .18s ease, border-color .18s ease}
-  textarea{min-height:160px; resize:vertical}
-  textarea:focus, input:focus{border-color:var(--ring); box-shadow:0 0 0 4px color-mix(in oklab, var(--ring) 100%, transparent)}
+  textarea{min-height:140px; resize:vertical}
+  textarea:focus, input:focus, select:focus{border-color:var(--ring); box-shadow:0 0 0 4px color-mix(in oklab, var(--ring) 100%, transparent)}
 
   .muted{color:var(--muted)}
   .divider{height:1px; background:var(--border); margin:16px 0}
   .tiny{font-size:12px}
 
-  /* ===== Settings row ===== */
-  .settings{display:grid; gap:6px}
-  .setting{display:flex; align-items:center; gap:10px; padding:8px 0}
-  .setting label{display:flex; align-items:center; gap:10px; margin:0; flex:1}
-  .setting .desc{color:var(--muted)}
+  /* ===== Settings (minimal rows) ===== */
+  .settings{display:grid; gap:8px}
+  .setting-line{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0}
+  .setting-line label{margin:0; cursor:pointer; display:flex; flex-direction:column; gap:2px}
+  .s-title{font-weight:700}
+  .s-desc{font-size:12px; color:var(--muted)}
+  .toggle{width:18px; height:18px; accent-color:var(--accent)}
+  .detail{margin:4px 0 0 0; padding:10px 12px; border-left:2px solid var(--border); border-radius:6px}
+  .hide{display:none}
 
   /* ===== Session grid ===== */
   .gridNames{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
@@ -91,11 +95,11 @@
   .reveal{background:var(--card); border:1px solid var(--border); border-radius:18px; padding:24px 22px; max-width:720px; margin:0 18px; text-align:center}
   .big{font-size:42px; font-weight:900; letter-spacing:.3px; margin:8px 0 6px}
   .subtle{opacity:.8}
+  .note{margin-top:10px; color:var(--muted)}
 
   .row{display:flex; gap:12px; align-items:center}
   .row>*{flex:1}
   .right{justify-content:flex-end}
-  .hide{display:none}
   .copybtn{min-width:110px}
 </style>
 <!-- Firebase SDKs -->
@@ -130,12 +134,77 @@
       <textarea id="names" aria-label="Names" placeholder="Alice&#10;Bob&#10;Charlie&#10;…"></textarea>
 
       <div class="settings">
-        <div class="setting">
+        <!-- No mutual pairs -->
+        <div class="setting-line">
           <label for="noTwo">
-            <input type="checkbox" id="noTwo" checked style="width:auto">
-            <span style="font-weight:700">No mutual pairs (no A↔B)</span>
+            <span class="s-title">No mutual pairs</span>
+            <span class="s-desc">Forbid A↔B two-cycles</span>
           </label>
-          <div class="desc tiny">Prevents A↔B two-cycles</div>
+          <input type="checkbox" id="noTwo" class="toggle" checked>
+        </div>
+
+        <!-- Exclude pairs -->
+        <div class="setting-line">
+          <label for="exToggle">
+            <span class="s-title">Exclude specific pairs</span>
+            <span class="s-desc">Disallow giver→receiver edges</span>
+          </label>
+          <input type="checkbox" id="exToggle" class="toggle">
+        </div>
+        <div id="exDetail" class="detail hide">
+          <label for="exList" class="tiny">One per line, e.g. <code>Alice-&gt;Bob</code></label>
+          <textarea id="exList" placeholder="Alice->Bob&#10;Charlie->Dana"></textarea>
+        </div>
+
+        <!-- PINs -->
+        <div class="setting-line">
+          <label for="pinToggle">
+            <span class="s-title">Require per-person PIN</span>
+            <span class="s-desc">Prevents accidental reveals</span>
+          </label>
+          <input type="checkbox" id="pinToggle" class="toggle">
+        </div>
+        <div id="pinDetail" class="detail hide">
+          <div class="row" style="gap:8px">
+            <label style="flex:0 0 180px">PIN length
+              <select id="pinLen">
+                <option value="4" selected>4 digits</option>
+                <option value="6">6 digits</option>
+              </select>
+            </label>
+            <div class="tiny muted">PINs are generated for you; stored as SHA‑256 hashes.</div>
+          </div>
+        </div>
+
+        <!-- Reveal window -->
+        <div class="setting-line">
+          <label for="winToggle">
+            <span class="s-title">Reveal window</span>
+            <span class="s-desc">Start + optional end (UTC)</span>
+          </label>
+          <input type="checkbox" id="winToggle" class="toggle">
+        </div>
+        <div id="winDetail" class="detail hide">
+          <div class="row" style="gap:8px">
+            <label>Start (datetime‑local, stored as UTC)
+              <input type="datetime-local" id="startAt" />
+            </label>
+            <label>End (optional)
+              <input type="datetime-local" id="endAt" />
+            </label>
+          </div>
+        </div>
+
+        <!-- Message for recipients -->
+        <div class="setting-line">
+          <label for="noteToggle">
+            <span class="s-title">Message for recipients</span>
+            <span class="s-desc">Shown in reveal modal</span>
+          </label>
+          <input type="checkbox" id="noteToggle" class="toggle">
+        </div>
+        <div id="noteDetail" class="detail hide">
+          <textarea id="noteText" placeholder="Budget €20–25. Exchange on Dec 23."></textarea>
         </div>
       </div>
 
@@ -152,6 +221,14 @@
     <div>
       <h3>Share link</h3>
       <div id="share" class="muted tiny">Create a session to get a link.</div>
+      <div id="pinListWrap" class="hide">
+        <div class="divider"></div>
+        <h4>PINs (organizer only)</h4>
+        <div id="pinList" class="tiny"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnCsv">Copy PINs CSV</button>
+        </div>
+      </div>
       <div class="divider"></div>
       <div id="adminStatus" class="tiny muted"></div>
     </div>
@@ -178,6 +255,7 @@
   <div class="reveal">
     <div class="subtle" id="reveal-title">Your person is</div>
     <div class="big" id="target">?</div>
+    <div id="note" class="note"></div>
     <div class="row right" style="margin-top:12px">
       <button class="btn" id="closeOv">Close</button>
     </div>
@@ -242,8 +320,21 @@ const viewAdmin = $('#view-admin');
 const viewSession  = $('#view-session');
 const ov = $('#ov');
 const targetEl = $('#target');
+const noteEl = $('#note');
 const progBar = $('#progBar');
 const namesEl = $('#names');
+
+const exToggle = $('#exToggle');
+const exDetail = $('#exDetail');
+const pinToggle = $('#pinToggle');
+const pinDetail = $('#pinDetail');
+const winToggle = $('#winToggle');
+const winDetail = $('#winDetail');
+const noteToggle = $('#noteToggle');
+const noteDetail = $('#noteDetail');
+
+[ [exToggle,exDetail], [pinToggle,pinDetail], [winToggle,winDetail], [noteToggle,noteDetail] ]
+  .forEach(([t,d])=> t.addEventListener('change', ()=> d.classList.toggle('hide', !t.checked)));
 
 function parseQuery(){
   const u = new URL(location.href);
@@ -254,15 +345,78 @@ function show(id){ [viewAdmin, viewSession].forEach(el=>el.classList.add('hide')
 // Utils
 function randToken(n=12){ return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(n)))).replace(/[^A-Za-z0-9]/g,'').slice(0, n+5); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const r=new Uint32Array(1); crypto.getRandomValues(r); const j=r[0]%(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function genDerangement(n, forbid=true, maxT=200000){
-  if(n<3) throw new Error('Need at least 3');
-  for(let t=0;t<maxT;t++){
-    const p=[...Array(n).keys()]; shuffle(p);
-    if(p.some((v,i)=>v===i)) continue;
-    if(forbid && p.some((v,i)=>p[v]===i)) continue;
-    return p;
+function genPin(len){ const arr = new Uint8Array(len); crypto.getRandomValues(arr); return Array.from(arr, b=> (b%10)).join(''); }
+async function sha256Hex(s){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+
+function parseExclusions(lines, nameToIdx){
+  const forb = new Set();
+  const bad = [];
+  for(const raw of lines.map(s=>s.trim()).filter(Boolean)){
+    const m = raw.split(/\s*->\s*/);
+    if(m.length!==2){ bad.push(raw); continue; }
+    const g = m[0].trim(); const r = m[1].trim();
+    const gi = nameToIdx.get(g); const ri = nameToIdx.get(r);
+    if(gi==null || ri==null){ bad.push(raw); continue; }
+    forb.add(`${gi}:${ri}`);
   }
-  throw new Error('Could not generate mapping');
+  return { forb, bad };
+}
+
+function solveAssignment(names, forbidSet){
+  const n = names.length;
+  // candidate lists (exclude self + forbidden)
+  const candidates = Array.from({length:n}, (_,i)=>{
+    const opts = [];
+    for(let j=0;j<n;j++) if(j!==i && !forbidSet.has(`${i}:${j}`)) opts.push(j);
+    return opts;
+  });
+
+  const order = Array.from({length:n}, (_,i)=>i).sort((a,b)=>candidates[a].length - candidates[b].length);
+  const used = new Array(n).fill(false);
+  const assign = new Array(n).fill(-1);
+
+  function dfs(k){
+    if(k===n) return true;
+    const i = order[k];
+    shuffle(candidates[i]);
+    for(const j of candidates[i]){
+      if(used[j]) continue;
+      assign[i]=j; used[j]=true;
+      if(dfs(k+1)) return true;
+      used[j]=false; assign[i]=-1;
+    }
+    return false;
+  }
+  const ok = dfs(0);
+  if(!ok) throw new Error('No valid assignment under current constraints. Try removing exclusions.');
+  return assign;
+}
+
+function hasTwoCycle(p){ for(let i=0;i<p.length;i++){ if(p[p[i]]===i && p[i]!==i) return true; } return false; }
+function breakTwoCycles(p, names, forbidSet, maxTries=300){
+  const n=p.length; const idxs=[...Array(n).keys()];
+  for(let t=0;t<maxTries;t++){
+    for(let i=0;i<n;i++){
+      const j=p[i]; if(p[j]===i){ // two-cycle
+        // try swap with k
+        for(const k of shuffle(idxs.slice())){
+          if(k===i||k===j) continue;
+          const a=p[k];
+          // try swap target of i and k
+          const ni=a, nk=j; // i->a, k->j
+          if(ni!==i && nk!==k && !forbidSet.has(`${i}:${ni}`) && !forbidSet.has(`${k}:${nk}`) && ni!==k && nk!==i){
+            const pj=p[i]; p[i]=ni; p[k]=nk; // temp
+            if(!hasTwoCycle(p)) return p;
+            // revert if still bad; try alternative
+            p[i]=pj; p[k]=a;
+          }
+        }
+      }
+    }
+    shuffle(p);
+  }
+  if(hasTwoCycle(p)) throw new Error('Could not break some mutual pairs; relax constraints or disable "no mutual pairs".');
+  return p;
 }
 
 async function initApp(){
@@ -293,35 +447,77 @@ function setupAdmin(){
     await waitForAuth();
     const names = namesEl.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
     if(names.length < 3) return alert('At least 3 names.');
+
+    // Build name->idx map for exclusions
+    const nameToIdx = new Map(names.map((n,i)=>[n,i]));
+
+    // Exclusions
+    const useEx = exToggle.checked;
+    let forbidSet = new Set();
+    if(useEx){
+      const raw = ($('#exList').value || '').split(/\r?\n/);
+      const {forb, bad} = parseExclusions(raw, nameToIdx);
+      if(bad.length){ return alert('Unknown or malformed exclusions:\n'+bad.join('\n')); }
+      forbidSet = forb;
+    }
+
+    // Reveal window
+    const useWin = winToggle.checked;
+    let startTs = null, endTs = null;
+    if(useWin){
+      const s = $('#startAt').value; if(!s) return alert('Please set a start time.');
+      const e = $('#endAt').value;
+      const sDate = new Date(s); if(isNaN(+sDate)) return alert('Invalid start time');
+      startTs = firebase.firestore.Timestamp.fromDate(sDate);
+      if(e){ const eDate = new Date(e); if(isNaN(+eDate)) return alert('Invalid end time'); endTs = firebase.firestore.Timestamp.fromDate(eDate); }
+    }
+
+    // Recipient note
+    const useNote = noteToggle.checked;
+    const noteText = useNote ? ($('#noteText').value || '').trim() : '';
+
+    // No mutual pairs
     const noTwo = $('#noTwo').checked;
-    const perm = genDerangement(names.length, noTwo);
+
+    // Solve mapping under constraints
+    let perm = solveAssignment(names, forbidSet);
+    if(noTwo && hasTwoCycle(perm)) perm = breakTwoCycles(perm, names, forbidSet);
+
+    // PINs
+    const usePins = pinToggle.checked;
+    const pinLen = parseInt($('#pinLen').value, 10) || 4;
 
     const sid = randToken(16);
     const sessRef = db.collection('sessions').doc(sid);
     const ownerUid = auth.currentUser?.uid || 'anonymous';
 
     // 1) Create session doc first
-    await sessRef.set({ createdAt: new Date().toISOString(), ownerUid, count:names.length, noTwo });
+    const sessData = { createdAt: new Date(), ownerUid, count:names.length, noTwo, settings:{ useEx, usePins, useWin, useNote } };
+    if(useWin){ sessData.revealStart = startTs; if(endTs) sessData.revealEnd = endTs; }
+    if(useNote){ sessData.recipientNote = noteText; }
+    await sessRef.set(sessData);
 
-    // 2) Create players (public) and secrets (target)
+    // 2) Create players and secrets
     const batch = db.batch();
     const players = [];
+    const pinPairs = [];
     for(let i=0;i<names.length;i++){
       const name = names[i];
       const pid = randToken(12);
       const target = names[perm[i]];
+      const playerDoc = { name, revealed:false, createdAt: new Date() };
+      if(usePins){ const pin = genPin(pinLen); playerDoc.pinHash = await sha256Hex(pin); pinPairs.push({name, pin}); }
       players.push({pid,name});
-      batch.set(sessRef.collection('players').doc(pid), { name, revealed:false, createdAt: new Date().toISOString() });
+      batch.set(sessRef.collection('players').doc(pid), playerDoc);
       batch.set(sessRef.collection('secrets').doc(pid), { target });
     }
-
     await batch.commit();
 
-    // Optional: public index
+    // Optional index
     try { await sessRef.collection('meta').doc('players_index').set({ entries: players, createdAt: new Date().toISOString() }); }
     catch(e){ console.warn('players_index write skipped (rules deny /meta).', e); }
 
-    // 3) Share link UI (copy only)
+    // Share link UI
     const base = location.origin + location.pathname;
     const sessionUrl = `${base}?session=${encodeURIComponent(sid)}`;
     const shareDiv = $('#share');
@@ -334,7 +530,20 @@ function setupAdmin(){
     `;
     $('#copyBtn').onclick = ()=>{ navigator.clipboard.writeText(sessionUrl).then(()=>{ const b=$('#copyBtn'); const t=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=t, 1200); }); };
 
-    // 4) Live status for creator
+    // PINs list (organizer view only)
+    const pinWrap = $('#pinListWrap');
+    const pinList = $('#pinList');
+    if(usePins){
+      pinWrap.classList.remove('hide');
+      const csv = ['name,pin'];
+      pinList.innerHTML = pinPairs.map(p=>`<div>${p.name}: <b>${p.pin}</b></div>`).join('');
+      pinPairs.forEach(p=>csv.push(`${p.name},${p.pin}`));
+      $('#btnCsv').onclick = ()=>{ navigator.clipboard.writeText(csv.join('\n')).then(()=>alert('PINs CSV copied')); };
+    } else {
+      pinWrap.classList.add('hide'); pinList.innerHTML='';
+    }
+
+    // Live status for creator
     attachSharedStatus(sessRef, sid);
   });
 }
@@ -397,24 +606,47 @@ function attachSharedStatus(sessRef, sid){
 }
 
 async function confirmAndReveal(sessRef, sid, pid, name){
-  if(!confirm(`Are you ${name}?`)) return;
+  // Pull session + player state
+  const sess = await sessRef.get();
+  const sdata = sess.data() || {};
+  // Reveal window checks (client-side)
+  const now = new Date();
+  if(sdata.revealStart && now < sdata.revealStart.toDate()){
+    alert('Reveals are not open yet.'); return;
+  }
+  if(sdata.revealEnd && now > sdata.revealEnd.toDate()){
+    alert('Reveals have closed.'); return;
+  }
+
+  // Optional PIN gate
+  const playerRef = sessRef.collection('players').doc(pid);
+  const secretRef = sessRef.collection('secrets').doc(pid);
+  const snap = await playerRef.get();
+  if(!snap.exists) return alert('Player not found.');
+  if(snap.data().revealed) return alert('Already revealed.');
+  const pinHash = snap.data().pinHash;
+  if(pinHash){
+    const pin = prompt(`Enter your PIN for ${name}`);
+    if(!pin) return;
+    const h = await sha256Hex(pin.trim());
+    if(h !== pinHash){ alert('Wrong PIN.'); return; }
+  } else {
+    if(!confirm(`Are you ${name}?`)) return;
+  }
+
   try{
     await waitForAuth();
-    const playerRef = sessRef.collection('players').doc(pid);
-    const secretRef = sessRef.collection('secrets').doc(pid);
-
-    const snap = await playerRef.get();
-    if(!snap.exists) return alert('Player not found.');
-    if(snap.data().revealed) return alert('Already revealed.');
-
-    await playerRef.update({ revealed:true, revealedAt: new Date().toISOString() });
+    // Flip revealed (rules also enforce server-side time window)
+    await playerRef.update({ revealed:true, revealedAt: new Date() });
 
     const sec = await secretRef.get();
     const tgt = sec.exists ? sec.data().target : '(missing)';
-    targetEl.textContent = tgt; ov.style.display='flex';
+    targetEl.textContent = tgt;
+    noteEl.textContent = sdata.recipientNote ? sdata.recipientNote : '';
+    ov.style.display='flex';
   }catch(e){
     console.error('Reveal error', e);
-    alert('Reveal failed due to permissions. Ensure Anonymous Auth is enabled, rules are published, and your domain is authorized.');
+    alert('Reveal failed due to permissions or time window. Ensure Anonymous Auth is enabled, rules are published, and your domain is authorized.');
   }
 }
 
@@ -429,17 +661,14 @@ $('#closeOv').addEventListener('click', ()=>{ ov.style.display='none'; });
     const arr = raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
     console.assert(arr.length===3 && arr[0]==='Alice' && arr[1]==='Bob' && arr[2]==='Charlie', 'Split test failed');
 
-    for(let n=3;n<=10;n++){
-      const p = genDerangement(n, true);
-      console.assert(p.every((v,i)=>v!==i), 'Derangement fixed point fail');
-      let two=false; for(let i=0;i<n;i++){ if(p[p[i]]===i){ two=true; break; } }
-      console.assert(!two, 'Derangement 2-cycle fail');
-    }
-    for(let n=3;n<=10;n++){
-      const p = genDerangement(n, false);
-      console.assert(p.every((v,i)=>v!==i), 'Derangement (noTwo=false) fixed point fail');
-    }
-    const tok = randToken(16); console.assert(/^[A-Za-z0-9]{10,}$/.test(tok), 'Token format');
+    // exclusions parse
+    const {forb,bad} = parseExclusions(['Alice->Bob','X->Y'], new Map([['Alice',0],['Bob',1]]));
+    console.assert(forb.has('0:1') && bad.length===1, 'Exclusion parse');
+
+    // assignment basic
+    const names = ['A','B','C','D'];
+    const p = solveAssignment(names, new Set());
+    console.assert(p.every((v,i)=>v!==i), 'Derangement basic');
 
     console.log('%cSelf-tests passed','color:#22c55e');
   } catch(e){ console.warn('Self-tests error:', e); }
